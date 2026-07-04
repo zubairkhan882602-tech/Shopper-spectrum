@@ -8,18 +8,23 @@ st.set_page_config(page_title="Shopper Spectrum", layout="wide")
 st.title("🛍️ Shopper Spectrum")
 st.caption("Customer Segmentation & Product Recommendation | EDA Dashboard")
 
-# ---------- LOAD ALL DATA (with caching for speed) ----------
+# ---------- LOAD ALL DATA ----------
 @st.cache_data
 def load_data():
-    # For Customer Tab & Recommender
-    rfm = pd.read_csv('rfm_data.csv', index_col=0)
-    rules = pd.read_csv('recommendation_rules.csv')
+    # 1. Load RFM data (File: rlm_dataset.csv)
+    rfm = pd.read_csv('rlm_dataset.csv', index_col=0)
+    rfm.index = rfm.index.astype(float).astype(int)
+
+    # 2. Load Recommendation Rules (File: recommendations_rule.csv)
+    rules = pd.read_csv('recommendations_rule.csv')
     rules['antecedents'] = rules['antecedents'].apply(lambda x: eval(x) if isinstance(x, str) else x)
     rules['consequents'] = rules['consequents'].apply(lambda x: eval(x) if isinstance(x, str) else x)
-    
-    # For EDA Charts
+
+    # 3. Load Cleaned Data (File: cleaned_retail.zip)
     df = pd.read_csv('cleaned_retail.zip', compression='zip')
-    df['InvoiceDate'] = pd.to_datetime(df['InvoiceDate'])
+    # 🔥 FIX: Add dayfirst=True to handle DD-MM-YYYY format
+    df['InvoiceDate'] = pd.to_datetime(df['InvoiceDate'], dayfirst=True)
+
     return rfm, rules, df
 
 rfm, rules, df = load_data()
@@ -30,20 +35,16 @@ tab1, tab2, tab3 = st.tabs(["🔍 Product Recommender", "👤 Customer Segment",
 # ---------- TAB 1: Product Recommendation ----------
 with tab1:
     st.header("Find Similar Products")
-    
     all_products = set()
     for itemset in rules['antecedents']:
         for item in itemset:
             all_products.add(item)
     all_products = sorted(list(all_products))
-    
     product_input = st.selectbox("Select or type a product:", all_products)
-    
     if st.button("Recommend"):
         recommendations = rules[rules['antecedents'].apply(lambda x: product_input in x)]
         recommended = recommendations['consequents'].explode().unique()
         recommended = [item for item in recommended if item != product_input]
-        
         if len(recommended) == 0:
             st.warning("⚠️ No recommendations found for this product.")
         else:
@@ -54,30 +55,27 @@ with tab1:
 # ---------- TAB 2: Customer Segmentation ----------
 with tab2:
     st.header("Check Customer Segment")
-    
-    customer_id = st.number_input("Enter Customer ID:", min_value=0, step=1, format="%d")
-    
+    customer_id = st.number_input("Enter Customer ID (e.g., 12347):", min_value=0, step=1, format="%d")
     if st.button("Get Segment"):
         if customer_id in rfm.index:
             segment = rfm.loc[customer_id, 'Segment_Name']
             r_score = rfm.loc[customer_id, 'R_Score']
             f_score = rfm.loc[customer_id, 'F_Score']
             m_score = rfm.loc[customer_id, 'M_Score']
-            
             st.success(f"✅ **Segment:** {segment}")
             st.metric("RFM Scores", f"{r_score}-{f_score}-{m_score}")
-            
             if "Champion" in segment:
                 st.balloons()
         else:
-            st.error("❌ Customer ID not found. Please check the ID.")
+            sample_ids = list(rfm.index[:5])
+            st.error(f"❌ Customer ID not found. Try these valid IDs: {sample_ids}")
 
 # ---------- TAB 3: Business Insights (EDA Charts) ----------
 with tab3:
     st.header("📈 Exploratory Data Analysis (EDA)")
     st.caption("Here are the key insights from our dataset.")
 
-    # Chart 1: Top 10 Products
+    # Chart 1
     st.subheader("🏆 1. Top 10 Best-Selling Products")
     top_products = df.groupby('Description')['Quantity'].sum().sort_values(ascending=False).head(10)
     fig1, ax1 = plt.subplots(figsize=(10, 5))
@@ -88,7 +86,7 @@ with tab3:
     ax1.tick_params(axis='x', rotation=45)
     st.pyplot(fig1)
 
-    # Chart 2: Top 10 Countries
+    # Chart 2
     st.subheader("🌍 2. Top 10 Countries by Revenue")
     country_sales = df.groupby('Country')['Revenue'].sum().sort_values(ascending=False).head(10)
     fig2, ax2 = plt.subplots(figsize=(10, 5))
@@ -99,7 +97,7 @@ with tab3:
     ax2.tick_params(axis='x', rotation=45)
     st.pyplot(fig2)
 
-    # Chart 3: Monthly Sales Trend
+    # Chart 3
     st.subheader("📅 3. Monthly Sales Trend")
     df['YearMonth'] = df['InvoiceDate'].dt.to_period('M')
     monthly_trend = df.groupby('YearMonth')['Revenue'].sum()
@@ -112,7 +110,7 @@ with tab3:
     ax3.tick_params(axis='x', rotation=45)
     st.pyplot(fig3)
 
-    # Chart 4: Revenue Distribution
+    # Chart 4
     st.subheader("💰 4. Revenue Distribution per Invoice")
     invoice_revenue = df.groupby('InvoiceNo')['Revenue'].sum()
     fig4, ax4 = plt.subplots(figsize=(12, 5))
@@ -123,7 +121,7 @@ with tab3:
     ax4.grid(True, linestyle='--', alpha=0.5)
     st.pyplot(fig4)
 
-    # Chart 5: Most Active Customers
+    # Chart 5
     st.subheader("🏃 5. Top 10 Most Active Customers")
     active_customers = df.groupby('CustomerID')['InvoiceNo'].nunique().sort_values(ascending=False).head(10)
     fig5, ax5 = plt.subplots(figsize=(10, 5))
@@ -135,5 +133,3 @@ with tab3:
     st.pyplot(fig5)
 
     st.success("✅ All charts loaded successfully!")
-
- 
