@@ -17,7 +17,8 @@ def load_data():
     rules['consequents'] = rules['consequents'].apply(lambda x: eval(x) if isinstance(x, str) else x)
     
     df = pd.read_csv('cleaned_retail.zip', compression='zip')
-    df['InvoiceDate'] = pd.to_datetime(df['InvoiceDate'], dayfirst=True)
+    df['InvoiceDate'] = pd.to_datetime(df['InvoiceDate'], errors='coerce')
+df = df.dropna(subset=['InvoiceDate'])
     
     return rfm, rules, df
 
