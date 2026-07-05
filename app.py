@@ -18,7 +18,7 @@ def load_data():
     
     df = pd.read_csv('cleaned_retail.zip', compression='zip')
     df['InvoiceDate'] = pd.to_datetime(df['InvoiceDate'], errors='coerce')
-df = df.dropna(subset=['InvoiceDate'])
+    df = df.dropna(subset=['InvoiceDate'])
     
     return rfm, rules, df
 
